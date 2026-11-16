@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>요트 다이스</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<style>
+  :root {
+    --sea: #12203a;
+    --sea-2: #1a2c4b;
+    --sea-line: #2a3f63;
+    --paper: #f3ead3;
+    --paper-2: #eadcb8;
+    --ink: #1d2a44;
+    --ink-soft: #7a6c50;
+    --rule: #cdbb8f;
+    --blue: #2457a6;
+    --red: #c8372d;
+    --brass: #e0b234;
+    --brass-dark: #9c7a1c;
+    --foam: #c9d4e6;
+    --serif: "DM Serif Display", Georgia, serif;
+    --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    --pen: "Nanum Pen Script", cursive;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--sea); color: var(--paper); font-family: var(--sans);
+    -webkit-tap-highlight-color: transparent; min-height: 100vh;
+  }
+  button { font-family: inherit; cursor: pointer; }
+  button:disabled { cursor: default; }
+
+  .testmode {
+    background: var(--brass); color: var(--ink); font-size: 12px; font-weight: 700;
+    text-align: center; padding: 5px 16px; letter-spacing: .02em;
+  }
+
+  /* ---------- 마스트헤드 ---------- */
+  .mast {
+    max-width: 1180px; margin: 0 auto; padding: 18px 20px 14px;
+    display: flex; align-items: flex-end; gap: 18px; border-bottom: 1px solid var(--sea-line);
+  }
+  .wordmark { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+  .wordmark b { font-family: var(--serif); font-weight: 400; font-size: 34px; line-height: 1; letter-spacing: -.01em; }
+  .wordmark span { font-size: 12px; color: var(--foam); letter-spacing: .25em; }
+  .roomstamp {
+    border: 1.5px solid var(--paper); padding: 3px 9px 2px; line-height: 1.1; text-align: center;
+  }
+  .roomstamp small { display: block; font-size: 9px; letter-spacing: .3em; color: var(--foam); }
+  .roomstamp strong { font-family: var(--serif); font-weight: 400; font-size: 20px; letter-spacing: .18em; }
+  .textbtn {
+    background: none; border: 0; color: var(--foam); font-size: 13px; padding: 4px 0;
+    text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--sea-line);
+  }
+  .textbtn:hover { color: var(--paper); text-decoration-color: var(--paper); }
+
+  /* ---------- 게임 레이아웃 ---------- */
+  .table {
+    max-width: 1180px; margin: 0 auto; padding: 20px;
+    display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 28px; align-items: start;
+  }
+  .tray { position: relative; width: 100%; aspect-ratio: 16 / 10.5; max-height: 62vh; }
+  .tray canvas { display: block; width: 100%; height: 100%; touch-action: manipulation; }
+  .traymsg {
+    position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%);
+    font-family: var(--serif); font-size: 26px; color: var(--paper); text-shadow: 0 2px 12px rgba(0,0,0,.5);
+    pointer-events: none; text-align: center; white-space: nowrap;
+  }
+  .traymsg small { display: block; font-family: var(--sans); font-size: 13px; color: var(--foam); margin-top: 4px; }
+
+  .controls { display: flex; align-items: center; gap: 16px; margin-top: 14px; min-height: 66px; }
+  .status { flex: 1; min-width: 0; }
+  .status .line { font-size: 18px; font-weight: 700; line-height: 1.35; }
+  .status .sub { font-size: 12px; color: var(--foam); letter-spacing: .12em; margin-bottom: 3px; }
+  .status .line i { font-style: normal; }
+  .status .p0 { color: #8fb3ee; } .status .p1 { color: #f08a7f; }
+
+  .rollbtn {
+    flex: none; display: flex; align-items: center; gap: 14px;
+    background: var(--brass); color: var(--ink); border: 0; border-radius: 6px;
+    font-size: 19px; font-weight: 700; padding: 15px 22px 14px;
+    box-shadow: 0 5px 0 var(--brass-dark); transform: translateY(0); transition: transform .06s, box-shadow .06s;
+  }
+  .rollbtn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 var(--brass-dark); }
+  .rollbtn:disabled { background: var(--sea-2); color: #5f7398; box-shadow: 0 5px 0 #0c1628; }
+  .rollbtn kbd { font-family: var(--sans); font-size: 11px; font-weight: 500; opacity: .6; }
+  .left { display: flex; gap: 4px; }
+  .left i { width: 10px; height: 10px; border: 2px solid currentColor; border-radius: 2px; }
+  .left i.on { background: currentColor; }
+
+  .share { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .share label { font-size: 13px; color: var(--foam); }
+  .share .row { display: flex; gap: 8px; }
+  .share input {
+    flex: 1; min-width: 0; background: var(--sea-2); color: var(--paper); border: 1px solid var(--sea-line);
+    font-family: var(--sans); font-size: 14px; padding: 11px 12px; border-radius: 4px;
+  }
+  .plainbtn {
+    background: var(--paper); color: var(--ink); border: 0; border-radius: 4px;
+    font-size: 14px; font-weight: 700; padding: 0 16px;
+  }
+  .seatbtn { background: none; border: 1.5px solid var(--paper); color: var(--paper); border-radius: 4px; font-size: 14px; font-weight: 700; padding: 10px 14px; }
+
+  /* ---------- 스코어카드 ---------- */
+  .card {
+    background: var(--paper); color: var(--ink); padding: 18px 18px 14px;
+    box-shadow: 0 1px 0 #fff8e6 inset, 0 18px 40px rgba(0,0,0,.35);
+    background-image: repeating-linear-gradient(0deg, transparent 0 3px, rgba(120,95,40,.025) 3px 4px);
+  }
+  .cardhead { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 3px double var(--ink); padding-bottom: 8px; }
+  .cardhead b { font-family: var(--serif); font-weight: 400; font-size: 22px; }
+  .cardhead span { font-size: 11px; letter-spacing: .2em; color: var(--ink-soft); }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-weight: 700; font-size: 13px; padding: 10px 4px 6px; text-align: center; vertical-align: bottom; }
+  th.catcol { text-align: left; font-size: 10px; letter-spacing: .25em; color: var(--ink-soft); font-weight: 500; }
+  th .pname { display: flex; align-items: center; justify-content: center; gap: 5px; max-width: 110px; margin: 0 auto; }
+  th .pname em { font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .flag { width: 11px; height: 11px; flex: none; }
+  .flag.p0 { background: var(--blue); } .flag.p1 { background: var(--red); }
+  .flag.off { opacity: .25; }
+  th .turnbar { height: 4px; margin-top: 6px; }
+  th.turn.p0 .turnbar { background: var(--blue); } th.turn.p1 .turnbar { background: var(--red); }
+  td { border-bottom: 1px solid var(--rule); padding: 0 4px; height: 40px; }
+  td.cat { font-size: 14px; font-weight: 500; line-height: 1.15; padding-left: 0; }
+  td.cat small { display: block; font-size: 10.5px; font-weight: 400; color: var(--ink-soft); margin-top: 1px; }
+  td.val { width: 27%; text-align: center; font-family: var(--pen); font-size: 30px; line-height: 1; }
+  td.val.p0 { color: var(--blue); } td.val.p1 { color: var(--red); }
+  td.val.cur { background: rgba(224,178,52,.09); }
+  td.val.zero { color: var(--ink-soft); text-decoration: line-through; text-decoration-thickness: 1px; }
+  td.val.ghost { color: rgba(29,42,68,.28); }
+  td.val.pick { cursor: pointer; color: rgba(29,42,68,.45); position: relative; }
+  td.val.pick:hover { background: rgba(224,178,52,.35); color: var(--ink); }
+  tr.sub td { border-top: 3px double var(--ink); background: var(--paper-2); height: 34px; }
+  tr.sub td.val { font-size: 22px; }
+  tr.total td { border-top: 2px solid var(--ink); border-bottom: 0; height: 52px; }
+  tr.total td.cat { font-family: var(--serif); font-size: 19px; font-weight: 400; }
+  tr.total td.val { font-size: 40px; }
+  .cardfoot { font-size: 11px; color: var(--ink-soft); margin-top: 10px; display: flex; justify-content: space-between; }
+
+  /* ---------- 로비 ---------- */
+  .lobby { max-width: 420px; margin: 0 auto; padding: 48px 16px; }
+  .lobby .wordmark { flex-direction: column; align-items: center; gap: 8px; margin: 0 0 28px; }
+  .lobby .wordmark b { font-size: 64px; }
+  .lobby .card { padding: 26px 24px 22px; }
+  .field { margin-bottom: 22px; }
+  .field label { display: block; font-size: 10px; letter-spacing: .3em; color: var(--ink-soft); margin-bottom: 2px; }
+  .field input {
+    width: 100%; background: none; border: 0; border-bottom: 1.5px solid var(--ink); border-radius: 0;
+    font-family: var(--pen); font-size: 34px; color: var(--ink); padding: 2px 0; outline: none;
+  }
+  .field input::placeholder { color: rgba(29,42,68,.25); }
+  .field input:focus { border-bottom-color: var(--blue); }
+  .field input.code { font-family: var(--serif); font-size: 30px; letter-spacing: .3em; text-transform: uppercase; }
+  .inkbtn {
+    width: 100%; background: var(--ink); color: var(--paper); border: 0; border-radius: 4px;
+    font-size: 16px; font-weight: 700; padding: 14px;
+  }
+  .inkbtn:hover { background: #2a3b5e; }
+  .or { display: flex; align-items: center; gap: 12px; margin: 22px 0 16px; font-size: 11px; letter-spacing: .25em; color: var(--ink-soft); }
+  .or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--rule); }
+  .joinrow { display: flex; gap: 10px; align-items: flex-end; }
+  .joinrow .field { flex: 1; margin: 0; }
+  .joinrow .inkbtn { width: auto; padding: 13px 20px; }
+  .err { color: var(--red); font-size: 13px; min-height: 18px; margin-top: 10px; }
+  .lobbyfoot { text-align: center; margin-top: 18px; }
+
+  @media (max-width: 900px) {
+    .table { grid-template-columns: 1fr; gap: 18px; padding: 12px 16px 24px; }
+    .tray { aspect-ratio: 4 / 3.2; }
+    .mast { padding: 14px 16px 12px; gap: 12px; }
+    .wordmark b { font-size: 26px; }
+    .mast .wordmark span { display: none; }
+    .card { padding: 14px 14px 10px; }
+  }
+  @media (max-width: 520px) {
+    .controls { flex-wrap: wrap; }
+    .rollbtn { width: 100%; justify-content: center; }
+    .rollbtn kbd { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+// ===== Supabase 설정: 새 프로젝트의 Project URL / anon public key 를 넣으세요 =====
+const SUPABASE_URL = 'https://yhnohaixwuusgsbzprmg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlobm9oYWl4d3V1c2dzYnpwcm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM4NjY0NDUsImV4cCI6MjEwOTQ0MjQ0NX0.nGOdSFWMivAc8wPYJzQwJDVxEZirXLR_IfRHUf1cGIs';
+// 위 값이 비어 있으면 "테스트 모드" (같은 브라우저의 탭끼리만 연결) 로 동작합니다.
+
+const ONLINE = /^https?:\/\//.test(SUPABASE_URL) && !SUPABASE_ANON_KEY.startsWith('YOUR') && !!window.supabase;
+
+// =====================================================================
+// 3D 주사위 트레이
+// =====================================================================
+const Dice3D = (() => {
+  const TRAY_W = 10, TRAY_D = 6.4;
+  const KEEP_LINE_Z = 1.35, KEEP_Z = 2.25;
+  const UP = new THREE.Vector3(0, 1, 0);
+  // BoxGeometry 재질 순서: +X, -X, +Y, -Y, +Z, -Z
+  const FACE_VALUES = [3, 4, 1, 6, 2, 5];
+  const BASE = { 1: [0, 0, 0], 6: [Math.PI, 0, 0], 3: [0, 0, Math.PI / 2], 4: [0, 0, -Math.PI / 2], 2: [-Math.PI / 2, 0, 0], 5: [Math.PI / 2, 0, 0] };
+
+  let renderer, scene, camera, container, ready = false;
+  const dice = [];
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  let clickable = () => false, onClick = () => {};
+  let hovered = -1;
+
+  const keepX = i => (i - 2) * 1.45;
+  const idlePos = i => [(i - 2) * 1.45, -0.7, 0];
+
+  function faceQuat(v, yaw) {
+    const b = new THREE.Quaternion().setFromEuler(new THREE.Euler(...BASE[v]));
+    return new THREE.Quaternion().setFromAxisAngle(UP, yaw).multiply(b);
+  }
+
+  function faceTexture(n) {
+    const S = 256, c = document.createElement('canvas');
+    c.width = c.height = S;
+    const g = c.getContext('2d');
+    g.fillStyle = '#f6f0e1'; g.fillRect(0, 0, S, S);
+    const grad = g.createRadialGradient(S / 2, S / 2, S * 0.2, S / 2, S / 2, S * 0.75);
+    grad.addColorStop(0, 'rgba(255,255,255,0)'); grad.addColorStop(1, 'rgba(160,130,80,0.18)');
+    g.fillStyle = grad; g.fillRect(0, 0, S, S);
+    const P = { 1: [[1,1]], 2: [[0,0],[2,2]], 3: [[0,0],[1,1],[2,2]], 4: [[0,0],[2,0],[0,2],[2,2]], 5: [[0,0],[2,0],[1,1],[0,2],[2,2]], 6: [[0,0],[2,0],[0,1],[2,1],[0,2],[2,2]] }[n];
+    for (const [x, y] of P) {
+      const cx = 62 + x * 66, cy = 62 + y * 66, r = n === 1 ? 38 : 22;
+      g.beginPath(); g.arc(cx, cy + 2, r, 0, Math.PI * 2); g.fillStyle = 'rgba(255,255,255,.7)'; g.fill();
+      g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fillStyle = n === 1 ? '#c8372d' : '#1d2a44'; g.fill();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    return t;
+  }
+
+  function feltTexture() {
+    const W = 1024, H = Math.round(1024 * TRAY_D / TRAY_W), c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    g.fillStyle = '#1f4256'; g.fillRect(0, 0, W, H);
+    const img = g.getImageData(0, 0, W, H), d = img.data;
+    for (let i = 0; i < d.length; i += 4) { const n = (Math.random() - 0.5) * 14; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+    g.putImageData(img, 0, 0);
+    const ly = (KEEP_LINE_Z + TRAY_D / 2) / TRAY_D * H;
+    g.fillStyle = 'rgba(8,20,32,.28)'; g.fillRect(0, ly, W, H - ly);
+    g.strokeStyle = 'rgba(224,178,52,.55)'; g.lineWidth = 3; g.setLineDash([14, 10]);
+    g.beginPath(); g.moveTo(24, ly); g.lineTo(W - 24, ly); g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = 'rgba(224,178,52,.6)'; g.font = '600 20px "IBM Plex Sans KR", sans-serif';
+    g.fillText('KEEP', 30, ly + 30);
+    const vig = g.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.62);
+    vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,.35)');
+    g.fillStyle = vig; g.fillRect(0, 0, W, H);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+
+  function init() {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(32, 16 / 10, 0.1, 100);
+
+    scene.add(new THREE.HemisphereLight(0xfff3dc, 0x14233c, 1.1));
+    const sun = new THREE.DirectionalLight(0xfff0d2, 2.4);
+    sun.position.set(-4, 11, 3.5);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    Object.assign(sun.shadow.camera, { left: -7, right: 7, top: 5, bottom: -5, near: 1, far: 30 });
+    sun.shadow.bias = -0.0005;
+    sun.shadow.radius = 3;
+    scene.add(sun);
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(TRAY_W, TRAY_D), new THREE.MeshStandardMaterial({ map: feltTexture(), roughness: 1 }));
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+    scene.add(floor);
+
+    const wood = new THREE.MeshStandardMaterial({ color: 0x6e4529, roughness: 0.55 });
+    const T = 0.5, Hh = 0.6;
+    const rim = (w, d, x, z) => {
+      const m = new THREE.Mesh(new RoundedBoxGeometry(w, Hh, d, 3, 0.08), wood);
+      m.position.set(x, Hh / 2 - 0.02, z); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+    };
+    rim(TRAY_W + T * 2, T, 0, -TRAY_D / 2 - T / 2);
+    rim(TRAY_W + T * 2, T, 0, TRAY_D / 2 + T / 2);
+    rim(T, TRAY_D, -TRAY_W / 2 - T / 2, 0);
+    rim(T, TRAY_D, TRAY_W / 2 + T / 2, 0);
+
+    const geo = new RoundedBoxGeometry(1, 1, 1, 4, 0.13);
+    const tex = {}; [1, 2, 3, 4, 5, 6].forEach(n => tex[n] = faceTexture(n));
+    const ringGeo = new THREE.RingGeometry(0.74, 0.84, 48);
+    for (let i = 0; i < 5; i++) {
+      const mats = FACE_VALUES.map(v => new THREE.MeshStandardMaterial({ map: tex[v], roughness: 0.32, emissive: 0x000000 }));
+      const mesh = new THREE.Mesh(geo, mats);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      mesh.userData.index = i;
+      scene.add(mesh);
+      const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xe0b234, transparent: true, opacity: 0.9 }));
+      ring.rotation.x = -Math.PI / 2; ring.position.y = 0.012; ring.visible = false;
+      scene.add(ring);
+      const v = [1, 2, 3, 4, 5][i];
+      const [x, z, yaw] = idlePos(i);
+      mesh.position.set(x, 0.5, z);
+      mesh.quaternion.copy(faceQuat(v, yaw));
+      dice.push({ mesh, mats, ring, value: v, held: false, target: null, anim: null });
+    }
+
+    renderer.domElement.addEventListener('pointermove', onMove);
+    renderer.domElement.addEventListener('pointerleave', () => setHover(-1));
+    renderer.domElement.addEventListener('click', e => { const i = pick(e); if (i >= 0 && clickable(i)) onClick(i); });
+    renderer.setAnimationLoop(tick);
+    ready = true;
+  }
+
+  function fit() {
+    if (!container) return;
+    const w = container.clientWidth, h = container.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    const vHalf = THREE.MathUtils.degToRad(camera.fov / 2);
+    const hHalf = Math.atan(Math.tan(vHalf) * camera.aspect);
+    const d = Math.max((TRAY_W / 2 + 0.75) / Math.tan(hHalf), (TRAY_D / 2 + 0.9) / Math.tan(vHalf)) * 1.04;
+    const dir = new THREE.Vector3(0, 1, 0.5).normalize();
+    const target = new THREE.Vector3(0, 0, 0.25);
+    camera.position.copy(target).addScaledVector(dir, d);
+    camera.lookAt(target);
+    camera.updateProjectionMatrix();
+  }
+
+  function pick(e) {
+    const r = renderer.domElement.getBoundingClientRect();
+    pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    raycaster.setFromCamera(pointer, camera);
+    const hit = raycaster.intersectObjects(dice.map(d => d.mesh), false)[0];
+    return hit ? hit.object.userData.index : -1;
+  }
+  function setHover(i) {
+    if (hovered === i) return;
+    hovered = i;
+    dice.forEach((d, j) => d.mats.forEach(m => m.emissive.setHex(j === i ? 0x3a2a05 : 0x000000)));
+    renderer.domElement.style.cursor = i >= 0 ? 'pointer' : '';
+  }
+  function onMove(e) { const i = pick(e); setHover(i >= 0 && clickable(i) ? i : -1); }
+
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
+  const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+  function tick(now) {
+    for (const d of dice) {
+      const a = d.anim;
+      if (a) {
+        const t = Math.min(1, Math.max(0, (now - a.t0) / a.dur));
+        const m = d.mesh;
+        if (a.type === 'roll') {
+          const e = easeOut(t);
+          m.position.x = a.fx + (a.tx - a.fx) * e;
+          m.position.z = a.fz + (a.tz - a.fz) * e;
+          m.position.y = 0.5 + (a.fy - 0.5) * Math.pow(1 - t, 2) * Math.abs(Math.cos(Math.PI * 2.4 * t));
+          m.quaternion.copy(a.q).multiply(new THREE.Quaternion().setFromAxisAngle(a.axis, a.angle * (1 - e)));
+        } else {
+          const e = easeInOut(t);
+          m.position.x = a.fx + (a.tx - a.fx) * e;
+          m.position.z = a.fz + (a.tz - a.fz) * e;
+          m.position.y = 0.5 + 0.55 * Math.sin(Math.PI * t);
+          m.quaternion.copy(a.fq).slerp(a.q, e);
+        }
+        if (t >= 1) d.anim = null;
+      }
+      d.ring.visible = d.held && !d.anim;
+      d.ring.position.x = d.mesh.position.x; d.ring.position.z = d.mesh.position.z;
+    }
+    renderer.render(scene, camera);
+  }
+
+  function startRoll(d, tx, tz, q, delay) {
+    const now = performance.now();
+    const axis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+    d.anim = {
+      type: 'roll', t0: now + delay, dur: 1150 + Math.random() * 250,
+      fx: tx * 0.35 + (Math.random() - 0.5) * 2.5, fy: 3.4, fz: 4.6,
+      tx, tz, q, axis, angle: (5 + Math.random() * 3) * Math.PI,
+    };
+    // 시작 전 위치를 트레이 밖으로
+    d.mesh.position.set(d.anim.fx, d.anim.fy, d.anim.fz);
+    d.mesh.quaternion.copy(q).multiply(new THREE.Quaternion().setFromAxisAngle(axis, d.anim.angle));
+    return delay + d.anim.dur;
+  }
+  function startGlide(d, tx, tz, q) {
+    d.anim = { type: 'glide', t0: performance.now(), dur: 380, fx: d.mesh.position.x, fz: d.mesh.position.z, fq: d.mesh.quaternion.clone(), tx, tz, q };
+  }
+
+  // 상태에 맞게 주사위 배치. rolled=true 이면 고정 안 한 주사위를 굴리는 애니메이션. 반환: 애니메이션 시간(ms)
+  function sync(st, rolled) {
+    if (!ready) return 0;
+    let longest = 0, k = 0;
+    dice.forEach((d, i) => {
+      const has = !!(st && st.dice);
+      const v = has ? st.dice[i] : d.value;
+      const held = has && st.held[i];
+      const p = has && st.pos ? st.pos[i] : idlePos(i);
+      const tx = held ? keepX(i) : p[0];
+      const tz = held ? KEEP_Z : p[1];
+      const yaw = held ? 0 : (has ? p[2] : 0);
+      const q = faceQuat(v, yaw);
+      d.held = held;
+      d.value = v;
+      if (rolled && !held) {
+        longest = Math.max(longest, startRoll(d, tx, tz, q, k++ * 70));
+      } else {
+        const tg = d.target;
+        const changed = !tg || Math.hypot(tg.x - tx, tg.z - tz) > 0.01 || tg.q.angleTo(q) > 0.01;
+        if (!tg) { d.mesh.position.set(tx, 0.5, tz); d.mesh.quaternion.copy(q); }
+        else if (changed) startGlide(d, tx, tz, q);
+      }
+      d.target = { x: tx, z: tz, q };
+    });
+    return longest;
+  }
+
+  function mount(el) {
+    if (!renderer) init();
+    container = el;
+    el.prepend(renderer.domElement);
+    new ResizeObserver(fit).observe(el);
+    fit();
+  }
+
+  // 무작위 배치 (겹치지 않게)
+  function layout(held, prev) {
+    const out = prev ? prev.map(p => p.slice()) : Array.from({ length: 5 }, () => [0, 0, 0]);
+    const placed = [];
+    for (let i = 0; i < 5; i++) if (held[i] && prev) placed.push(out[i]);
+    for (let i = 0; i < 5; i++) {
+      if (held[i] && prev) continue;
+      let p, tries = 0;
+      do {
+        p = [-4.0 + Math.random() * 8.0, -2.35 + Math.random() * 2.9, Math.random() * Math.PI * 2];
+        tries++;
+      } while (tries < 300 && placed.some(q => Math.hypot(q[0] - p[0], q[1] - p[1]) < 1.65));
+      placed.push(p); out[i] = p;
+    }
+    return out;
+  }
+
+  // 테스트용: 각 주사위 윗면 값 읽기
+  function topFaces() {
+    return dice.map(d => {
+      let best = -2, val = 0;
+      const normals = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+      normals.forEach((n, j) => {
+        const w = new THREE.Vector3(...n).applyQuaternion(d.mesh.quaternion);
+        if (w.y > best) { best = w.y; val = FACE_VALUES[j]; }
+      });
+      return val;
+    });
+  }
+
+  return {
+    mount, sync, layout, topFaces,
+    setInteraction(canClick, handler) { clickable = canClick; onClick = handler; },
+  };
+})();
+
+// =====================================================================
+// 저장소
+// =====================================================================
+const ls = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+const ss = {
+  get(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} },
+};
+function myId() {
+  let id = ss.get('yacht-id');
+  if (!id) { id = Math.random().toString(36).slice(2, 10); ss.set('yacht-id', id); }
+  return id;
+}
+
+// =====================================================================
+// 점수 규칙
+// =====================================================================
+const sum = d => d.reduce((a, b) => a + b, 0);
+const counts = d => { const c = [0,0,0,0,0,0,0]; d.forEach(x => c[x]++); return c; };
+const maxCount = d => Math.max(...counts(d));
+const hasRun = (d, runs) => { const s = new Set(d); return runs.some(r => r.every(x => s.has(x))); };
+
+const UPPER = [1,2,3,4,5,6].map(n => ({
+  k: 'n' + n, name: ['에이스', '듀스', '트레이', '포', '파이브', '식스'][n - 1], hint: `${n} 눈의 합`,
+  f: d => d.filter(x => x === n).length * n,
+}));
+const LOWER = [
+  { k: 'choice', name: '초이스', hint: '주사위 전부 합', f: d => sum(d) },
+  { k: 'four', name: '포카드', hint: '같은 눈 4개 · 전부 합', f: d => maxCount(d) >= 4 ? sum(d) : 0 },
+  { k: 'full', name: '풀하우스', hint: '3개 + 2개 · 전부 합', f: d => counts(d).filter(x => x).sort().join() === '2,3' ? sum(d) : 0 },
+  { k: 'ss', name: 'S. 스트레이트', hint: '4개 연속 · 15점', f: d => hasRun(d, [[1,2,3,4],[2,3,4,5],[3,4,5,6]]) ? 15 : 0 },
+  { k: 'ls', name: 'L. 스트레이트', hint: '5개 연속 · 30점', f: d => hasRun(d, [[1,2,3,4,5],[2,3,4,5,6]]) ? 30 : 0 },
+  { k: 'yacht', name: '요트', hint: '5개 모두 같음 · 50점', f: d => maxCount(d) === 5 ? 50 : 0 },
+];
+const ALL = [...UPPER, ...LOWER];
+const ALL_KEYS = ALL.map(c => c.k);
+
+const upperSum = sc => UPPER.reduce((a, c) => a + (sc[c.k] || 0), 0);
+const bonus = sc => upperSum(sc) >= 63 ? 35 : 0;
+const total = sc => ALL.reduce((a, c) => a + (sc[c.k] || 0), 0) + bonus(sc);
+const filled = sc => ALL_KEYS.filter(k => sc[k] !== undefined).length;
+
+// =====================================================================
+// 게임 상태 · 네트워크
+// =====================================================================
+const me = { id: myId(), name: ls.get('yacht-name') || '' };
+let room = null, transport = null, state = null, connected = false;
+const lastSeen = {};
+let animRollId = null, animating = false;
+
+function freshState(players, starter = 0, game = 1, owner = me.id) {
+  return {
+    v: 1, owner, game, starter,
+    phase: players.length === 2 ? 'playing' : 'waiting',
+    players, turn: starter,
+    dice: null, pos: null, held: [false,false,false,false,false], rollsLeft: 3, rollId: 0,
+    scores: [{}, {}],
+  };
+}
+
+const isPlayer = () => !!state && state.players.some(p => p.id === me.id);
+const myTurn = () => !!state && state.phase === 'playing' && state.players[state.turn] && state.players[state.turn].id === me.id && !animating;
+const online = id => id === me.id || Date.now() - (lastSeen[id] || 0) < 9000;
+const canHold = () => myTurn() && state.dice && state.rollsLeft > 0 && state.rollsLeft < 3;
+
+function makeTransport(code, onMsg, onStatus) {
+  if (ONLINE) {
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const ch = client.channel('yacht-' + code, { config: { broadcast: { self: false } } });
+    ch.on('broadcast', { event: 'msg' }, ({ payload }) => onMsg(payload));
+    ch.subscribe(status => onStatus(status === 'SUBSCRIBED' ? 'ok' : 'error'));
+    return { send: p => ch.send({ type: 'broadcast', event: 'msg', payload: p }) };
+  }
+  const bc = new BroadcastChannel('yacht-' + code);
+  bc.onmessage = e => onMsg(e.data);
+  setTimeout(() => onStatus('ok'), 50);
+  return { send: p => bc.postMessage(p) };
+}
+
+function send(t, extra = {}) {
+  if (!transport || !connected) return;
+  transport.send({ t, from: me.id, name: me.name, ...extra });
+}
+
+function handleMsg(m) {
+  if (!m || m.from === me.id) return;
+  lastSeen[m.from] = Date.now();
+  if (m.t === 'hello') {
+    if (state) { tryAddPlayer(m.from, m.name); send('state', { state }); }
+  } else if (m.t === 'beat') {
+    if (state) tryAddPlayer(m.from, m.name);
+    updatePresence();
+  } else if (m.t === 'state') {
+    accept(m.state);
+  }
+}
+
+function accept(inc) {
+  if (!inc) return;
+  if (!state || inc.v > state.v || (inc.v === state.v && inc.owner < state.owner)) {
+    state = inc; save(); render();
+  } else if (inc.v < state.v) {
+    send('state', { state });
+  }
+}
+
+function tryAddPlayer(id, name) {
+  if (state.phase !== 'waiting' || state.players.length >= 2) return;
+  if (state.players.some(p => p.id === id)) return;
+  state.players.push({ id, name });
+  state.phase = 'playing';
+  state.turn = state.starter;
+  bump();
+}
+
+function save() { if (room && state) ls.set('yacht-state-' + room, JSON.stringify(state)); }
+function bump() { state.v++; save(); send('state', { state }); render(); }
+
+function enterRoom(code) {
+  room = code;
+  ss.set('yacht-entered', code);
+  history.replaceState(null, '', location.pathname + '?room=' + code);
+  try { state = JSON.parse(ls.get('yacht-state-' + code)); } catch (e) { state = null; }
+  animRollId = state ? state.rollId : null;
+  connected = false;
+  transport = makeTransport(code, handleMsg, st => {
+    const was = connected;
+    connected = st === 'ok';
+    if (connected && !was) {
+      send('hello');
+      setTimeout(() => {
+        if (!state) state = freshState([{ id: me.id, name: me.name }]);
+        else if (!isPlayer()) tryAddPlayer(me.id, me.name);
+        save(); send('state', { state }); render();
+      }, 1500);
+    }
+    render();
+  });
+  setInterval(() => send('beat'), 3000);
+  setInterval(updatePresence, 2000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) send('hello'); });
+  render();
+}
+
+// ---------- 행동 ----------
+function roll() {
+  if (!myTurn() || state.rollsLeft <= 0) return;
+  if (state.rollsLeft === 3) state.held = [false,false,false,false,false];
+  const d = state.dice ? state.dice.slice() : [1,1,1,1,1];
+  for (let i = 0; i < 5; i++) if (!state.held[i]) d[i] = 1 + Math.floor(Math.random() * 6);
+  state.pos = Dice3D.layout(state.held, state.dice ? state.pos : null);
+  state.dice = d;
+  state.rollsLeft--;
+  state.rollId++;
+  bump();
+}
+function toggleHold(i) {
+  if (!canHold()) return;
+  state.held[i] = !state.held[i];
+  bump();
+}
+function pickScore(k) {
+  if (!myTurn() || !state.dice || state.rollsLeft === 3) return;
+  const sc = state.scores[state.turn];
+  if (sc[k] !== undefined) return;
+  const cat = ALL.find(c => c.k === k);
+  const val = cat.f(state.dice);
+  if (val === 0 && !confirm(`'${cat.name}' 칸에 0점을 적을까요?`)) return;
+  sc[k] = val;
+  if (filled(state.scores[0]) === 12 && filled(state.scores[1]) === 12) state.phase = 'over';
+  else state.turn = 1 - state.turn;
+  state.dice = null; state.pos = null;
+  state.held = [false,false,false,false,false];
+  state.rollsLeft = 3;
+  bump();
+}
+function rematch() {
+  if (!isPlayer()) return;
+  const v = state.v;
+  state = freshState(state.players, 1 - state.starter, state.game + 1, state.owner);
+  state.v = v;
+  bump();
+}
+function claimSeat(i) {
+  if (isPlayer() || !state.players[i] || online(state.players[i].id)) return;
+  state.players[i] = { id: me.id, name: me.name };
+  bump();
+}
+
+Dice3D.setInteraction(() => canHold(), i => toggleHold(i));
+
+// =====================================================================
+// 화면
+// =====================================================================
+const app = document.getElementById('app');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const testBar = ONLINE ? '' : `<div class="testmode">테스트 모드 · Supabase 키를 넣기 전에는 같은 브라우저의 탭끼리만 연결돼요</div>`;
+let built = false;
+
+function render() { room ? renderGame() : renderLobby(); }
+
+function renderLobby() {
+  built = false;
+  const qRoom = (new URLSearchParams(location.search).get('room') || '').toUpperCase();
+  app.innerHTML = `
+    ${testBar}
+    <div class="lobby">
+      <div class="wordmark"><b>Yacht</b><span>요트 다이스</span></div>
+      <div class="card">
+        <div class="field">
+          <label>NAME · 이름</label>
+          <input id="name" maxlength="10" placeholder="이름을 적어주세요" value="${esc(me.name)}" autocomplete="off">
+        </div>
+        ${qRoom ? `
+          <div class="field">
+            <label>ROOM · 방 코드</label>
+            <input class="code" value="${esc(qRoom)}" readonly>
+          </div>
+          <button class="inkbtn" data-act="join" data-code="${esc(qRoom)}">입장하기</button>
+        ` : `
+          <button class="inkbtn" data-act="create">새 방 만들기</button>
+          <div class="or">또는</div>
+          <div class="joinrow">
+            <div class="field">
+              <label>ROOM · 방 코드</label>
+              <input id="code" class="code" maxlength="4" placeholder="ABCD" autocomplete="off">
+            </div>
+            <button class="inkbtn" data-act="join">입장</button>
+          </div>
+        `}
+        <div class="err" id="err"></div>
+      </div>
+      ${qRoom ? `<div class="lobbyfoot"><button class="textbtn" data-act="home">다른 방으로 가기</button></div>` : ''}
+    </div>`;
+}
+
+function buildGame() {
+  app.innerHTML = `
+    ${testBar}
+    <header class="mast">
+      <div class="wordmark"><b>Yacht</b><span>요트 다이스</span></div>
+      <div class="roomstamp"><small>ROOM</small><strong id="roomcode"></strong></div>
+      <button class="textbtn" data-act="copy">링크 복사</button>
+      <button class="textbtn" data-act="leave">나가기</button>
+    </header>
+    <main class="table">
+      <section>
+        <div class="tray" id="tray"><div class="traymsg" id="traymsg"></div></div>
+        <div class="controls" id="controls"></div>
+      </section>
+      <aside class="card" id="sheet"></aside>
+    </main>`;
+  Dice3D.mount(document.getElementById('tray'));
+  built = true;
+}
+
+const pcls = i => 'p' + i;
+const pname = i => state.players[i] ? esc(state.players[i].name) : '—';
+
+function statusHTML() {
+  if (!connected) return { sub: '', line: '서버에 연결하는 중…' };
+  if (!state) return { sub: '', line: '방 정보를 불러오는 중…' };
+  if (state.phase === 'waiting') return { sub: '', line: '상대를 기다리는 중' };
+  if (state.phase === 'over') {
+    const a = total(state.scores[0]), b = total(state.scores[1]);
+    if (a === b) return { sub: `GAME ${state.game} · 끝`, line: `무승부 · ${a} 대 ${b}` };
+    const w = a > b ? 0 : 1;
+    return { sub: `GAME ${state.game} · 끝`, line: `<i class="${pcls(w)}">${pname(w)}</i> 승리 · ${Math.max(a, b)} 대 ${Math.min(a, b)}` };
+  }
+  const t = state.turn;
+  const sub = `ROUND ${Math.min(12, filled(state.scores[t]) + 1)} / 12`;
+  const who = `<i class="${pcls(t)}">${pname(t)}</i>`;
+  if (animating) return { sub, line: '데구르르…' };
+  if (!isPlayer()) return { sub, line: `관전 중 · ${who}의 차례` };
+  if (state.players[t].id !== me.id) return { sub, line: `${who}의 차례예요` };
+  if (state.rollsLeft === 3) return { sub, line: '내 차례 · 주사위를 굴리세요' };
+  if (state.rollsLeft > 0) return { sub, line: '남길 주사위를 누르고 다시 굴리거나<br>점수표에 적으세요' };
+  return { sub, line: '점수표에서 칸을 골라 적으세요' };
+}
+
+function renderControls() {
+  const el = document.getElementById('controls');
+  const s = statusHTML();
+  const status = `<div class="status"><div class="sub">${s.sub}</div><div class="line">${s.line}</div></div>`;
+  if (!state || state.phase === 'waiting') {
+    el.innerHTML = `<div class="share"><label>학생에게 이 링크를 보내주세요</label>
+      <div class="row"><input readonly value="${esc(location.href)}"><button class="plainbtn" data-act="copy">복사</button></div></div>`;
+    return;
+  }
+  let action = '';
+  if (state.phase === 'playing' && isPlayer()) {
+    const mine = myTurn();
+    const left = mine ? state.rollsLeft : 0;
+    action = `<button class="rollbtn" data-act="roll" ${mine && left > 0 ? '' : 'disabled'}>
+      굴리기 <span class="left">${[0,1,2].map(i => `<i class="${i < left ? 'on' : ''}"></i>`).join('')}</span> <kbd>Space</kbd></button>`;
+  } else if (state.phase === 'over' && isPlayer()) {
+    action = `<button class="rollbtn" data-act="rematch">한 판 더</button>`;
+  } else if (!isPlayer()) {
+    action = state.players.map((p, i) => !online(p.id) ? `<button class="seatbtn" data-act="claim" data-i="${i}">${esc(p.name)} 자리 잇기</button>` : '').join('');
+  }
+  el.innerHTML = status + action;
+}
+
+function renderTrayMsg() {
+  const el = document.getElementById('traymsg');
+  let html = '';
+  if (!state || state.phase === 'waiting') html = '상대를 기다리는 중<small>링크를 받은 사람이 들어오면 바로 시작해요</small>';
+  else if (state.phase === 'playing' && !state.dice && !animating) {
+    html = state.players[state.turn].id === me.id ? '' : `${pname(state.turn)}의 차례`;
+  }
+  el.innerHTML = html;
+}
+
+function renderSheet() {
+  const el = document.getElementById('sheet');
+  if (!state || !state.players.length) { el.innerHTML = ''; return; }
+  const t = state.turn, playing = state.phase === 'playing';
+  const showPreview = playing && state.dice && state.rollsLeft < 3 && !animating;
+  const mine = myTurn();
+  const head = i => {
+    const p = state.players[i];
+    const on = p ? online(p.id) : false;
+    return `<th class="${pcls(i)}${playing && t === i ? ' turn' : ''}"><div class="pname"><span class="flag ${pcls(i)}${on ? '' : ' off'}" data-pid="${p ? esc(p.id) : ''}"></span><em>${pname(i)}${p && p.id === me.id ? ' (나)' : ''}</em></div><div class="turnbar"></div></th>`;
+  };
+  const cell = (i, c) => {
+    const v = state.scores[i][c.k];
+    const cur = playing && t === i ? ' cur' : '';
+    if (v !== undefined) return `<td class="val ${pcls(i)}${cur}${v === 0 ? ' zero' : ''}">${v}</td>`;
+    if (showPreview && i === t) {
+      const pv = c.f(state.dice);
+      return mine
+        ? `<td class="val pick${cur}" data-act="pick" data-k="${c.k}" title="${c.name}에 ${pv}점 적기">${pv}</td>`
+        : `<td class="val ghost${cur}">${pv}</td>`;
+    }
+    return `<td class="val${cur}"></td>`;
+  };
+  const rows = cats => cats.map(c => `<tr><td class="cat">${c.name}<small>${c.hint}</small></td>${cell(0, c)}${cell(1, c)}</tr>`).join('');
+  const bonusCell = i => { const s = state.scores[i]; return `<td class="val ${pcls(i)}">${bonus(s) ? '+35' : `<span style="color:var(--ink-soft);font-size:20px">${upperSum(s)}/63</span>`}</td>`; };
+  el.innerHTML = `
+    <div class="cardhead"><b>Score Card</b><span>NO. ${esc(room)} · GAME ${state.game}</span></div>
+    <table>
+      <tr><th class="catcol">항목</th>${head(0)}${head(1)}</tr>
+      ${rows(UPPER)}
+      <tr class="sub"><td class="cat">보너스<small>위 여섯 칸 63점 이상 · +35</small></td>${bonusCell(0)}${bonusCell(1)}</tr>
+      ${rows(LOWER)}
+      <tr class="total"><td class="cat">Total</td><td class="val p0">${total(state.scores[0])}</td><td class="val p1">${total(state.scores[1])}</td></tr>
+    </table>
+    <div class="cardfoot"><span>${mine && showPreview ? '연필 숫자를 누르면 그 칸에 적혀요' : ''}</span><span>${playing ? '' : ''}</span></div>`;
+}
+
+function renderGame() {
+  if (!built) buildGame();
+  document.getElementById('roomcode').textContent = room;
+
+  // 주사위 동기화 (+ 굴리기 애니메이션)
+  if (state) {
+    const rolled = !!state.dice && animRollId !== null && state.rollId !== animRollId;
+    animRollId = state.rollId;
+    if (rolled) {
+      animating = true;
+      const dur = Dice3D.sync(state, true);
+      setTimeout(() => { animating = false; render(); }, dur + 60);
+    } else {
+      Dice3D.sync(state, false);
+    }
+  } else {
+    Dice3D.sync(null, false);
+  }
+  renderControls();
+  renderTrayMsg();
+  renderSheet();
+}
+
+function updatePresence() {
+  document.querySelectorAll('.flag[data-pid]').forEach(el => el.dataset.pid && el.classList.toggle('off', !online(el.dataset.pid)));
+}
+
+// =====================================================================
+// 이벤트
+// =====================================================================
+function makeCode() {
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  return Array.from({ length: 4 }, () => A[Math.floor(Math.random() * A.length)]).join('');
+}
+function readName() {
+  const el = document.getElementById('name');
+  const n = el ? el.value.trim() : me.name;
+  if (!n) { document.getElementById('err').textContent = '이름을 먼저 적어주세요'; el && el.focus(); return false; }
+  me.name = n.slice(0, 10); ls.set('yacht-name', me.name);
+  return true;
+}
+
+app.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const act = b.dataset.act;
+  if (act === 'create') { if (readName()) enterRoom(makeCode()); }
+  else if (act === 'join') {
+    if (!readName()) return;
+    const code = (b.dataset.code || (document.getElementById('code') || {}).value || '').trim().toUpperCase();
+    if (!/^[A-Z]{4}$/.test(code)) { document.getElementById('err').textContent = '방 코드 4글자를 적어주세요'; return; }
+    enterRoom(code);
+  }
+  else if (act === 'home' || act === 'leave') { ss.set('yacht-entered', ''); location.href = location.pathname; }
+  else if (act === 'copy') {
+    const link = location.href, old = b.textContent;
+    const done = () => { b.textContent = '복사됨'; setTimeout(() => { b.textContent = old; }, 1200); };
+    if (navigator.clipboard) navigator.clipboard.writeText(link).then(done, () => prompt('링크를 복사하세요', link));
+    else prompt('링크를 복사하세요', link);
+  }
+  else if (act === 'roll') roll();
+  else if (act === 'pick') pickScore(b.dataset.k);
+  else if (act === 'rematch') rematch();
+  else if (act === 'claim') claimSeat(+b.dataset.i);
+});
+app.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || room) return;
+  if (e.target.id === 'code') app.querySelector('.joinrow [data-act="join"]').click();
+  else if (e.target.id === 'name') (app.querySelector('[data-code]') || app.querySelector('[data-act="create"]')).click();
+});
+document.addEventListener('keydown', e => {
+  if (!room || e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { e.preventDefault(); roll(); }
+  else if (/^[1-5]$/.test(e.key)) toggleHold(+e.key - 1);
+});
+
+// 디버그/테스트용
+window.__yacht = { get state() { return state; }, get animating() { return animating; }, roll, toggleHold, pickScore, rematch, myTurn, topFaces: Dice3D.topFaces, ALL_KEYS };
+
+// 새로고침한 경우: 이 탭에서 들어갔던 방이면 바로 재입장
+(() => {
+  const q = (new URLSearchParams(location.search).get('room') || '').toUpperCase();
+  if (/^[A-Z]{4}$/.test(q) && ss.get('yacht-entered') === q && me.name) enterRoom(q); else render();
+})();
+</script>
+</body>
+</html>
